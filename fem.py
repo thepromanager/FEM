@@ -1,3 +1,3 @@
-import calfem
-print(calfem.VERSION)
-print("first")
+import numpy as np 
+import calfem.core as cfc
+
