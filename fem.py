@@ -40,4 +40,19 @@ for i in np.arange(0,NELEM):
     kei = cfc.bar2e(ex[i, :], ey[i, :], [E, A[i]])
     cfc.assem(edof[i, :], K, kei)
 
-print(K)
+
+#boundary conditions
+F = np.zeros((NDOF, 1))
+F[7] = -10e3
+bc_dof = np.array([1,2,3,4,5,6])
+bc_val = np.array([0,0,0,0,0,0])
+
+#solve
+a, r = cfc.solveq(K, F, bc_dof , bc_val)
+
+
+print("displacements:")
+print(a)
+
+print("reaction forces:")
+print(r)
