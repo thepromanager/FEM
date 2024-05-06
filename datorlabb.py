@@ -38,6 +38,9 @@ def uppgift1():
     F[3] = -15*A
     bc_dof = np.array([1])
     bc_val = np.array([0])
+    F_load = [[100], [200], [200], [100]]
+
+    F=F+F_load
 
     a,r = cfc.solveq(K, F, bc_dof, bc_val)
     print("temperature")
