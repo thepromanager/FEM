@@ -1,29 +1,23 @@
 import numpy as np 
 import calfem.core as cfc
+import matplotlib.pyplot as plt
 
 def uppgift1():
-    NELEM, NDOF = 3, 4
+    NELEM, NDOF = 20, 21
+    L = 6/NELEM
 
-    ex = np.array([2,
-                   4,
-                   6
+    ex = np.array([2+ x*L for x in range(0,NELEM)
                 ])
-    ey = np.array([4,
-                   6,
-                   8
+    ex = np.array([2+ x*L for x in range(1,NELEM+1)
                 ])
     
-    edof = np.array([
-        [1, 2],
-        [2, 3],
-        [3, 4]
+    edof = np.array([[i,i+1] for i in range(1,NELEM+1)
     ])
 
 
     A = 10
     k = 5
     Q = 100
-    L = 2
 
     K = np.zeros((NDOF,NDOF))
 
@@ -35,10 +29,11 @@ def uppgift1():
     print(K)
 
     F = np.zeros((NDOF,1))
-    F[3] = -15*A
+    F[NELEM] = -15*A
     bc_dof = np.array([1])
     bc_val = np.array([0])
-    F_load = [[100], [200], [200], [100]]
+    F_load = Q*L*np.ones((NDOF,1))
+    F_load[0], F_load[-1] = Q*L*0.5, Q*L*0.5
 
     F=F+F_load
 
@@ -47,4 +42,9 @@ def uppgift1():
     print(a)
     print("heat flow")
     print(r)
+
+    x = np.arange(2,8.1,L)
+    plt.plot(x,a)
+    plt.show()
+
 uppgift1()
