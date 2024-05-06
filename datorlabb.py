@@ -1,6 +1,7 @@
 import numpy as np 
 import calfem.core as cfc
 import matplotlib.pyplot as plt
+import geom2
 
 def uppgift1():
     NELEM, NDOF = 20, 21
@@ -47,4 +48,8 @@ def uppgift1():
     plt.plot(x,a)
     plt.show()
 
-uppgift1()
+def uppgift2():
+    coord, edof, dofs, bdofs, bc, bc_value, element_markers = geom2.generate_mesh()
+    print(coord, edof, dofs, bdofs, bc, bc_value, element_markers)
+
+uppgift2()
