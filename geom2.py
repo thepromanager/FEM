@@ -78,7 +78,7 @@ def generate_mesh(show_geometry: bool):
     bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_100, 100, 1)
 
     # return
-    return (coord, edof, dofs, bdofs, bc, bc_value, element_markers)
+    return (coord, edof, dofs, bdofs, bc, bc_value, element_markers, g, mesh)
 
 if __name__=="__main__":
     generate_mesh(show_geometry=True)

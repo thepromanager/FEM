@@ -2,6 +2,9 @@ import numpy as np
 import calfem.core as cfc
 import matplotlib.pyplot as plt
 import geom2
+import matplotlib as mpl
+mpl.use('TkAgg')
+import calfem.vis_mpl as cfv
 
 def uppgift1():
     NELEM, NDOF = 20, 21
@@ -49,7 +52,7 @@ def uppgift1():
     plt.show()
 
 def uppgift2():
-    coord, edof, dofs, bdofs, bc, bc_value, element_markers = geom2.generate_mesh(False)
+    coord, edof, dofs, bdofs, bc, bc_value, element_markers, g, mesh  = geom2.generate_mesh(False)
     k = 1
     
     nDofs = np.size(dofs)
@@ -63,7 +66,26 @@ def uppgift2():
 
     a,r = cfc.solveq(K,np.zeros((nDofs,1)),bc, bc_value)
 
-    print(a)
+    fig, ax = plt.subplots()
+    cfv.draw_geometry(
+        g,
+        label_curves=True,
+        title="Geometry: Computer Lab Exercise 2"
+    )
+    cfv.drawMesh(
+        coords=coord,
+        edof=edof,
+        dofs_per_node=mesh.dofsPerNode,
+        el_type=mesh.elType,
+        filled=True,
+        title="Example 01"
+    )
+    a=a.T.tolist()[0]
+
+    cfv.draw_nodal_values_shaded(a,coord,edof,title=None,dofs_per_node=mesh.dofs_per_node,el_type=mesh.el_type, draw_elements=False)
+    plt.show()
+
+
     
 
 uppgift2()
