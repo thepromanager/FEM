@@ -83,8 +83,16 @@ mesh.el_type = el_type
 mesh.dofs_per_node = dofs_pn
 coords, edof, dofs, bdofs, element_markers = mesh.create()
 
-#Making K Matrix
+#Material Parameters
 k=80
+
+#Apply boundry condition
+bc, bc_value = np.array([], 'i'), np.array([], 'f')
+bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_285, 285, 1)
+bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_277, 277, 1)
+bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_293, 293, 1)
+
+#Making K Matrix
 
 nDofs = np.size(dofs)
 ex, ey = cfc.coordxtr(edof, coords, dofs)
@@ -93,12 +101,7 @@ K = np.zeros([nDofs, nDofs])
 for eltopo, elx, ely in zip(edof, ex, ey):
     Ke = cfc.flw2te(elx,ely,[1],k*np.eye(2))
     K = cfc.assem(eltopo, K, Ke)
-
-#Apply boundry condition
-bc, bc_value = np.array([], 'i'), np.array([], 'f')
-bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_285, 285, 1)
-bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_277, 277, 1)
-bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_293, 293, 1)
+    
 
 #solve
 a,r = cfc.solveq(K,np.zeros((nDofs,1)),bc, bc_value)
