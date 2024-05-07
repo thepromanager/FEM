@@ -7,18 +7,17 @@ import matplotlib as mpl
 import calfem.geometry as cfg
 import calfem.mesh as cfm
 import calfem.vis_mpl as cfv
+import calfem.utils as cfu
 
 g = cfg.geometry()
 
 # define parameters
-R = 2
-L = 10
-
-Height=200
-bigWidth=400
-smallWidth=300
-circleRadius=25
-circleSpacing = 87.5
+scale=0.08
+Height=200*scale
+bigWidth=400*scale
+smallWidth=300*scale
+circleRadius=25*scale
+circleSpacing = 87.5*scale
 
 
 # Mesh data
@@ -77,10 +76,35 @@ def circle(x,y,Marker,pointIndex,splineIndex):
 print(pointIndex,splineIndex)
 
 # define surface
-g.surface([0, 1, 2, 3,4,5,6],holes=[[7,8,9,10]])
-#g.surface([7,8,9,10])
+g.surface([0, 1, 2, 3,4,5,6],holes=[[i,i+1,i+2,i+3] for i in (7,11,15)])
 
+# Create Mesh
+mesh = cfm.GmshMeshGenerator(g, mesh_dir=mesh_dir)
+mesh.el_size_factor = el_sizef
+mesh.el_type = el_type
+mesh.dofs_per_node = dofs_pn
+coords, edof, dofs, bdofs, element_markers = mesh.create()
 
+#Making K Matrix
+k=80
+
+nDofs = np.size(dofs)
+ex, ey = cfc.coordxtr(edof, coords, dofs)
+
+K = np.zeros([nDofs, nDofs])
+for eltopo, elx, ely in zip(edof, ex, ey):
+    Ke = cfc.flw2te(elx,ely,[1],k*np.eye(2))
+    K = cfc.assem(eltopo, K, Ke)
+
+#Apply boundry condition
+bc, bc_value = np.array([], 'i'), np.array([], 'f')
+bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_285, 285, 1)
+bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_277, 277, 1)
+bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_293, 293, 1)
+
+#solve
+a,r = cfc.solveq(K,np.zeros((nDofs,1)),bc, bc_value)
+a=a.T.tolist()[0]
 
 fig, ax = plt.subplots()
 cfv.draw_geometry(
@@ -88,5 +112,13 @@ cfv.draw_geometry(
     label_curves=True,
     title="Geometry: Computer Lab Exercise 2"
 )
-
+cfv.drawMesh(
+            coords=coords,
+            edof=edof,
+            dofs_per_node=mesh.dofsPerNode,
+            el_type=mesh.elType,
+            filled=False,
+            title="Example 01"
+        )
+cfv.draw_nodal_values_shaded(a,coords,edof,title=None,dofs_per_node=mesh.dofs_per_node,el_type=mesh.el_type, draw_elements=False)
 plt.show()
