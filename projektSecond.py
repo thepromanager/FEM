@@ -18,6 +18,7 @@ bigWidth=400*scale
 smallWidth=300*scale
 circleRadius=25*scale
 circleSpacing = 87.5*scale
+DEPTH = 1600*scale
 
 
 # Mesh data
@@ -99,8 +100,13 @@ ex, ey = cfc.coordxtr(edof, coords, dofs)
 
 K = np.zeros([nDofs, nDofs])
 for eltopo, elx, ely in zip(edof, ex, ey):
-    Ke = cfc.flw2te(elx,ely,[1],k*np.eye(2))
+    Ke = cfc.flw2te(elx,ely,[DEPTH],k*np.eye(2))
     K = cfc.assem(eltopo, K, Ke)
+
+for i in range(0,nDofs):
+      Ke = cfc.flw2te(elx[i,:],ely[i,:],[DEPTH], k*np.eye(2))
+      if i in conv:
+            Ke += plantml
     
 
 #solve
