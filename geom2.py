@@ -62,6 +62,14 @@ def generate_mesh(show_geometry: bool):
             label_curves=True,
             title="Geometry: Computer Lab Exercise 2"
         )
+        cfv.drawMesh(
+            coords=coord,
+            edof=edof,
+            dofs_per_node=mesh.dofsPerNode,
+            el_type=mesh.elType,
+            filled=True,
+            title="Example 01"
+        )
         plt.show()
 
     # Boundary Conditions
