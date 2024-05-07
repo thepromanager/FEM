@@ -49,7 +49,21 @@ def uppgift1():
     plt.show()
 
 def uppgift2():
-    coord, edof, dofs, bdofs, bc, bc_value, element_markers = geom2.generate_mesh()
-    print(coord, edof, dofs, bdofs, bc, bc_value, element_markers)
+    coord, edof, dofs, bdofs, bc, bc_value, element_markers = geom2.generate_mesh(False)
+    k = 1
+    
+    nDofs = np.size(dofs)
+    ex, ey = cfc.coordxtr(edof, coord, dofs)
+
+    K = np.zeros([nDofs, nDofs])
+
+    for eltopo, elx, ely in zip(edof, ex, ey):
+        Ke = cfc.flw2te(elx,ely,[1],k*np.eye(2))
+        K = cfc.assem(eltopo, K, Ke)
+
+    a,r = cfc.solveq(K,np.zeros((nDofs,1)),bc, bc_value)
+
+    print(a)
+    
 
 uppgift2()
