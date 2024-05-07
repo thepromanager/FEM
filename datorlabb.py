@@ -3,7 +3,7 @@ import calfem.core as cfc
 import matplotlib.pyplot as plt
 import geom2
 import matplotlib as mpl
-mpl.use('TkAgg')
+
 import calfem.vis_mpl as cfv
 
 def uppgift1():
