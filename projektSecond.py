@@ -9,10 +9,11 @@ import calfem.mesh as cfm
 import calfem.vis_mpl as cfv
 import calfem.utils as cfu
 
+import plantml
 g = cfg.geometry()
 
 # define parameters
-scale=0.08
+scale=1
 Height=200*scale
 bigWidth=400*scale
 smallWidth=300*scale
@@ -22,7 +23,7 @@ DEPTH = 1600*scale
 
 
 # Mesh data
-el_sizef, el_type, dofs_pn = 0.5, 2, 1
+el_sizef, el_type, dofs_pn = 10, 2, 1
 mesh_dir = "./"
 
 # boundary markers
@@ -85,35 +86,91 @@ mesh.dofs_per_node = dofs_pn
 coords, edof, dofs, bdofs, element_markers = mesh.create()
 
 #Material Parameters
-k=80
+k = 80/1000
+alpha_c = 120/1000_000
+alpha_n = 40/1000_000
 
 #Apply boundry condition
 bc, bc_value = np.array([], 'i'), np.array([], 'f')
-bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_285, 285, 1)
-bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_277, 277, 1)
-bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_293, 293, 1)
+#bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_285, 285, 1)
+#bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_277, 277, 1)
+#bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_293, 293, 1)
 
 #Making K Matrix
-
 nDofs = np.size(dofs)
 ex, ey = cfc.coordxtr(edof, coords, dofs)
 
 K = np.zeros([nDofs, nDofs])
-for eltopo, elx, ely in zip(edof, ex, ey):
-    Ke = cfc.flw2te(elx,ely,[DEPTH],k*np.eye(2))
-    K = cfc.assem(eltopo, K, Ke)
 
-for i in range(0,nDofs):
-      Ke = cfc.flw2te(elx[i,:],ely[i,:],[DEPTH], k*np.eye(2))
-      if i in conv:
-            Ke += plantml
-    
+
+def NtN(ex: np.array, ey: np.array, s: float): # First node is not on boundry
+    if not ex.shape == (3,) or not ey.shape == (3,):
+        raise Exception("Incorrect shape of ex or ey: {0}, {1} but should be (3,)".format(ex.shape, ey.shape))
+    Cmat = np.vstack((np.ones((3, )), ex, ey))
+
+F=np.zeros((nDofs,1))
+for  i in range(0,np.shape(ex)[0]):
+    Ke = cfc.flw2te(ex[i,:],ey[i,:],[DEPTH], k*np.eye(2))
+    #print(cfc.flw2te(np.array([850,1000,1000]),np.array([750,700,800]),[1],np.eye(2)))
+    boundryTemp=0
+    nodes=[]
+    for marker in [0,1,2]:
+        temp=0
+        nodesOnBoundry=[]
+        for j in range(3):
+            node = edof[i,:][j]
+            if(node in bdofs[marker]):
+                temp = [293,277,285][marker]
+                nodesOnBoundry.append(j)
+        if(len(nodesOnBoundry)>1):
+            boundryTemp=temp
+            nodes=nodesOnBoundry
+    if(boundryTemp):
+
+        alpha = (alpha_n)*(boundryTemp==293)+alpha_c*(boundryTemp==277 or boundryTemp==285)
+
+        #temp=plantml.plantml(ex[i,:],ey[i,:],alpha*DEPTH)
+        #temp=plantml.plantml(np.array([850,1000,1000]),np.array([750,700,800]),1)
+        firstPoint=np.array([ex[i,:][nodes[0]],ey[i,:][nodes[0]]])
+
+        secondPoint=np.array([ex[i,:][nodes[1]],ey[i,:][nodes[1]]])
+        L=np.linalg.norm(firstPoint-secondPoint)
+        
+        temp = np.array([[0, 0, 0],[0,0,0],[0,0,0]])
+        temp[nodes[0]][nodes[0]]=L/3
+        temp[nodes[1]][nodes[1]]=L/3
+        temp[nodes[0]][nodes[1]]=L/6
+        temp[nodes[1]][nodes[0]]=L/6
+        temp=alpha*DEPTH*temp
+        Ke += temp
+
+        node1 = edof[i,:][nodes[0]]
+        node2 = edof[i,:][nodes[1]]
+        F[node1]=F[node1]+L/2*alpha*DEPTH*boundryTemp
+        F[node2]=F[node2]+L/2*alpha*DEPTH*boundryTemp
+
+    K = cfc.assem(edof[i,:], K, Ke)
+#making F
+
+new_arr=F[np.where(F!=0)]
+print(np.size(new_arr))
+print(nDofs)
+
 
 #solve
-a,r = cfc.solveq(K,np.zeros((nDofs,1)),bc, bc_value)
+#a,r = cfc.solveq(K,F,bc, bc_value)
+a=np.linalg.solve(K,F)
 a=a.T.tolist()[0]
+mi, ma = 10000000,-100000
+for t in a:
+    if t>ma:
+        ma=t
+    if t<mi:
+        mi=t
+print(mi,ma)
 
 fig, ax = plt.subplots()
+
 cfv.draw_geometry(
     g,
     label_curves=True,
@@ -125,7 +182,10 @@ cfv.drawMesh(
             dofs_per_node=mesh.dofsPerNode,
             el_type=mesh.elType,
             filled=False,
-            title="Example 01"
+            title="Example 01",
+            
         )
+
 cfv.draw_nodal_values_shaded(a,coords,edof,title=None,dofs_per_node=mesh.dofs_per_node,el_type=mesh.el_type, draw_elements=False)
+cfv.colorbar()
 plt.show()

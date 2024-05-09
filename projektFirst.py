@@ -90,10 +90,13 @@ nDofs = np.size(dofs)
 ex, ey = cfc.coordxtr(edof, coords, dofs)
 
 K = np.zeros([nDofs, nDofs])
+i=0
 for eltopo, elx, ely in zip(edof, ex, ey):
     Ke = cfc.flw2te(elx,ely,[1],k*np.eye(2))
     K = cfc.assem(eltopo, K, Ke)
 
+    i+=1
+print(i,nDofs)
 #Apply boundry condition
 bc, bc_value = np.array([], 'i'), np.array([], 'f')
 bc, bc_value = cfu.applybc(bdofs, bc, bc_value, MARKER_T_285, 285, 1)
