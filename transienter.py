@@ -27,8 +27,8 @@ circleSpacing = 87.5*scale
 DEPTH = 1600*scale
 
 #Simulation Parameters
-timestep = 5 #definiera i sekunder
-type_of_charging =1 #1 eller 2, motsvarar Q = f1(t) resp Q = f2(t)
+timestep = 10 #definiera i sekunder
+type_of_charging = 2 #1 eller 2, motsvarar Q = f1(t) resp Q = f2(t)
 
 #Material Parameters
 k = 80 #/1000
@@ -182,6 +182,7 @@ time_list = np.array([x*timestep for x in range(0,3601//timestep)])
 a = 293*np.ones((nDofs,1)) #initialisera med konstant temperatur i batteriet, T=293K
 m = 0 #printar tiden lite då och då
 Cs=[]
+As=[]
 for i in range(0,np.shape(ex)[0]):     
     el_node1,el_node2,el_node3 = edof[i,:][0],edof[i,:][1],edof[i,:][2]
     node1_coord = np.array([ex[i,:][0],ey[i,:][0]])
@@ -247,6 +248,10 @@ for current_time in time_list:
     if m%50 == 0:
         
         print(f"tid: {current_time}s")
+    if(current_time in [170,270,570,920,2510,3430] and type_of_charging==1):
+        As.append(a)
+    if(current_time in [200,590,1290,2250,3000,3590] and type_of_charging==2):
+        As.append(a)
     m+=1
     
 
@@ -264,18 +269,39 @@ plt.plot(time_list, max_T_T0, label = "$max|T-T_0|$")
 #f1: 2.153903685658406, f2: 
 plt.show()
 
-fig, ax = plt.subplots()
+#fig, axs = plt.subplots(6)
+print(len(As))
+if(type_of_charging==1):
+    for i in range(6):
+        cfv.drawMesh(
+                coords=coords,
+                edof=edof,
+                dofs_per_node=mesh.dofsPerNode,
+                el_type=mesh.elType,
+                filled=False,
+                title="Temperature distribution during charging type 1 ("+str([170,270,570,920,2510,3430][i])+" s)",
+                
+            )
 
-cfv.drawMesh(
-            coords=coords,
-            edof=edof,
-            dofs_per_node=mesh.dofsPerNode,
-            el_type=mesh.elType,
-            filled=False,
-            title="konvektion + transienter",
-            
-        )
+        cfv.draw_nodal_values_shaded(As[i],coords,edof,title=None,dofs_per_node=mesh.dofs_per_node,el_type=mesh.el_type, draw_elements=False)
+        cfv.colorbar()
 
-cfv.draw_nodal_values_shaded(a,coords,edof,title=None,dofs_per_node=mesh.dofs_per_node,el_type=mesh.el_type, draw_elements=False)
-cfv.colorbar()
-plt.show()
+
+        plt.show()
+else:
+    for i in range(6):
+        cfv.drawMesh(
+                coords=coords,
+                edof=edof,
+                dofs_per_node=mesh.dofsPerNode,
+                el_type=mesh.elType,
+                filled=False,
+                title="Temperature distribution during charging type 2 ("+str([200,590,1290,2250,3000,3590][i])+" s)",
+                
+            )
+
+        cfv.draw_nodal_values_shaded(As[i],coords,edof,title=None,dofs_per_node=mesh.dofs_per_node,el_type=mesh.el_type, draw_elements=False)
+        cfv.colorbar()
+
+
+        plt.show()

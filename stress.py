@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri May 10 13:40:34 2024
-
-@author: edwin
-"""
 import numpy as np 
 import calfem.core as cfc
 import matplotlib.pyplot as plt
@@ -27,19 +21,29 @@ circleSpacing = 87.5*scale
 DEPTH = 1600*scale
 
 #Simulation Parameters
-timestep = 5 #definiera i sekunder
-type_of_charging =1 #1 eller 2, motsvarar Q = f1(t) resp Q = f2(t)
+type_of_charging = 1 #1 eller 2, motsvarar Q = f1(t) resp Q = f2(t)
+timestep = 10 #definiera i sekunder
+totTime = 920*(type_of_charging==1)+600*(type_of_charging==2) # 920 (charge 1) 600 ()
 
-#Material Parameters
+
+#Thermic Parameters
 k = 80 #/1000
 alpha_c = 120 #/1000_000
 alpha_n = 40 #/1000_000
 rho = 540 #/ 1000_000_000 #kg/mm^(3)
 c_p = 3600 #J/(kgK)
 
+#Mechanical Parameters
+young_E = 5 * 10**9
+poission_v = 0.36
+expansion_a = 60 * 10**(-6)
+
+
 # Mesh data
 el_sizef, el_type, dofs_pn = 10*scale, 2, 1
 mesh_dir = "./"
+dofs_pn2=2
+
 
 # boundary markers
 MARKER_T_293=0 #293 K
@@ -61,13 +65,13 @@ g.point([0, Height/2-circleRadius], 7)
 
 # define lines / circle segments
 
-g.spline([0, 1], 0, marker=MARKER_QN_0)
-g.spline([1, 2], 1, marker=MARKER_QN_0)
-g.spline([2, 3], 2, marker=MARKER_T_293)
-g.spline([3, 4], 3, marker=MARKER_QN_0)
+g.spline([0, 1], 0, marker=MARKER_QN_0) # also u = 0
+g.spline([1, 2], 1, marker=MARKER_QN_0) # also u = 0
+g.spline([2, 3], 2, marker=MARKER_T_293) # also t = 0
+g.spline([3, 4], 3, marker=MARKER_QN_0) # also u = 0
 g.circle([4, 5, 6], 4, marker=MARKER_T_285)
 g.circle([6, 5, 7], 5, marker=MARKER_T_285)
-g.spline([7, 0], 6, marker=MARKER_QN_0)
+g.spline([7, 0], 6, marker=MARKER_QN_0) # also u = 0
 
 pointIndex=8
 splineIndex=7
@@ -100,7 +104,12 @@ mesh.el_type = el_type
 mesh.dofs_per_node = dofs_pn
 coords, edof, dofs, bdofs, element_markers = mesh.create()
 
-
+# Create Mesh2
+mesh2 = cfm.GmshMeshGenerator(g, mesh_dir=mesh_dir)
+mesh2.el_size_factor = el_sizef
+mesh2.el_type = el_type
+mesh2.dofs_per_node = dofs_pn2
+coords2, edof2, dofs2, bdofs2, element_markers2 = mesh2.create()
 
 #Making K Matrix
 nDofs = np.size(dofs)
@@ -178,7 +187,7 @@ maximum_a_values = np.array([])
 minimum_a_values = np.array([])
 max_T_T0 = np.array([])
 inverse_matrix = np.linalg.inv(C+timestep*K)
-time_list = np.array([x*timestep for x in range(0,3601//timestep)])
+time_list = np.array([x*timestep for x in range(0,(totTime+1)//timestep)])
 a = 293*np.ones((nDofs,1)) #initialisera med konstant temperatur i batteriet, T=293K
 m = 0 #printar tiden lite då och då
 Cs=[]
@@ -251,6 +260,76 @@ for current_time in time_list:
     
 
 print(np.max(a),np.min(a))
+
+
+# REMOVE LATER
+nDofs2 = np.size(dofs2)
+ex2, ey2 = cfc.coordxtr(edof2, coords2, dofs2)
+Kmech = np.zeros([nDofs2, nDofs2])
+ptype=2
+D = np.eye(3)*young_E
+badD = cfc.hooke(ptype,young_E,poission_v)
+
+F=np.zeros((nDofs2,1))
+
+D[0,0]=badD[0,0]
+D[1,0]=badD[1,0]
+D[0,1]=badD[0,1]
+D[1,1]=badD[1,1]
+D[2,2]=badD[3,3]
+print(D)
+for  i in range(0,np.shape(ex2)[0]):
+    
+    Ke = cfc.plante(ex2[i,:],ey2[i,:],[ptype,DEPTH], D) #
+    #Kmech = cfc.assem(edof2[i,:], Kmech, Ke)
+
+    el_node1,el_node2,el_node3 = edof[i,:][0],edof[i,:][1],edof[i,:][2]
+    temp1,temp2,temp3 = a[el_node1-1],a[el_node2-1],a[el_node3-1]
+
+    #sigx = young_E/(2*poission_v-1)*expansion_a*T
+    #sigy = young_E/(2*poission_v-1)*expansion_a*T
+    #sigz = young_E/(2*poission_v-1)*expansion_a*T
+    #tauxy = 0
+    deltaT=np.abs(293-(temp1+temp2+temp3)/3)
+    sig = np.matmul(D,expansion_a*deltaT*np.array([1,1,0]))
+    fe=cfc.plantf(ex2[i,:],ey2[i,:],[ptype,DEPTH],np.array([sig]))
+    (Kmech,F)=cfc.assem(edof2[i,:],Kmech,Ke,F,fe)
+
+
+bc, bc_value = np.array([], 'i'), np.array([], 'f')
+bc, bc_value = cfu.applybc(bdofs2, bc, bc_value, MARKER_QN_0, 0, 0)
+
+#f=np.zeros((nDofs2,1))
+u,rowan = cfc.solveq(Kmech,F,bc, bc_value)
+ed=cfc.extract_eldisp(edof2,u)
+vonMises=[]
+maxVonMises=0
+for  i in range(0,np.shape(ex2)[0]):
+    [es,et]= cfc.plants(ex2[i,:],ey2[i,:],[ptype,DEPTH], D, ed[i,:])
+
+    el_node1,el_node2,el_node3 = edof[i,:][0],edof[i,:][1],edof[i,:][2]
+    temp1,temp2,temp3 = a[el_node1-1],a[el_node2-1],a[el_node3-1]
+    deltaT=(temp1+temp2+temp3)/3-293
+    Depsilon = (expansion_a*young_E*deltaT/(1-2*poission_v))[0]
+
+    sigzz = ((young_E/(1-2*poission_v))*((poission_v/(1+poission_v))*(et[0][0]+et[0][1])-expansion_a*deltaT))[0]
+    sigzz-=-Depsilon
+    sigxx = es[0][0] - Depsilon
+    sigyy = es[0][1] - Depsilon
+    vM = np.sqrt(sigxx*sigxx+sigyy*sigyy+sigzz*sigzz-sigxx*sigzz-sigxx*sigyy-sigyy*sigzz)
+    vonMises.append(vM)
+    if(vM>maxVonMises):
+        maxVonMises=vM
+
+print(maxVonMises)
+
+
+#u=u.T.tolist()[0]
+
+
+
+
+
     
 plt.plot(time_list, maximum_a_values,label = "maximum temperatures")
 plt.plot(time_list, minimum_a_values, label = "minimum temperatures")
@@ -276,6 +355,7 @@ cfv.drawMesh(
             
         )
 
-cfv.draw_nodal_values_shaded(a,coords,edof,title=None,dofs_per_node=mesh.dofs_per_node,el_type=mesh.el_type, draw_elements=False)
+#cfv.draw_nodal_values_shaded(a,coords,edof,title=None,dofs_per_node=mesh.dofs_per_node,el_type=mesh.el_type, draw_elements=False)
+cfv.draw_element_values(vonMises,coords2,edof2,title=None,dofs_per_node=mesh2.dofs_per_node,el_type=mesh2.el_type,draw_elements=False)
 cfv.colorbar()
 plt.show()
